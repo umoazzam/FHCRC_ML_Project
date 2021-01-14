@@ -4,7 +4,7 @@
 ### Setting: CHS cohort
 ### Investigators: Alison Fohner, Noah Simon, Bruce Psaty, Jessica Perry, Jen Brody, Susan Heckbert, Nathan Kutz, Will Longstreth, Barbara McKnight, Diya Sashidhar, Colleen Sitlani, Nona Sotoodehnia
 
-### Background:
+#### Background:
 Strokes kill 10% of people worldwide, making them the second greatest killer after ischemic heart disease.1 Strokes are also a leading cause of disability. Currently, diagnosis requires clinical evaluation and brain imaging, which must occur promptly, as the specific type of stroke determines appropriate treatment.2-4 Electrocardiograms (ECGs) are easy to obtain and routinely are collected for other conditions. Identifying associations between ECG readings and risk of stroke would be valuable for both greater characterization of the etiology of stroke and its subtypes, and for improving prediction of future stroke risk.
 
 Ischemic stroke accounts for approximately 80-85% of strokes. The subtypes of ischemic stroke include large vessel, small vessel, and cardioembolic, although many stroke do not fit into these three main categories.2 Most studies of ECGs and stroke focus on Atrial Fibrillation (AF) and the P-wave. AF is associated with a 5-fold increased risk of ischemic stroke and a 5-fold increased risk of recurrent stroke.5,6 AF is characterized in the absence of P-waves and an irregular ventricular rate on an ECG. However, only about ⅓ of ischemic stroke patients have ECGs indicating even intermittent AF, including after three years of continuous monitoring.7 
@@ -15,18 +15,24 @@ Other features of an abnormal P-wave that have been associated with stroke inclu
 
 Deep learning with ECGs could contribute to stroke research in several ways: 1) by clarifying associations between ECG features and the risk of incident ischemic stroke; 2) by differentiating subtypes of ischemic stroke apparent in ECG features; and 3) by illustrating how ECG features may improve predictions of ischemic stroke compared to AF alone. We propose applying deep learning to ECGs, including: 1) applying convolutional neural networks (CNN) and recurrent neural networks (RNNs) to ECGs to evaluate ECG traits as risk factors for incident stroke; and among an inception cohort of stroke survivors, to evaluate ECG traits as risk factors for recurrent ischemic stroke; and 2) determining how this method improves or overlaps with predictions of ischemic stroke based on PTFV1 and AF. 
 
-### Study design:
+#### Study design:
 This study will take place in the Cardiovascular Health Study (CHS), which includes up to 10 serial ECGs for each participant and adjudicated strokes.20,21 Over 1000 strokes are estimated in CHS. We will exclude participants with prevalent stroke at baseline. ECGs with poor quality (EPICARE score of 5), with atrial fibrillation, or with a pacemaker will be excluded. Initially a CNN will be built, with baseline ECG readings as input, to predict risk of incident ischemic stroke. This model will be trained with time-to-ischemic stroke as the outcome using a partial-likelihood-based loss. The data will be split randomly with 80% used to train the model and the remaining 20% to validate. Stroke prediction with CNN will be compared to predictions of ischemic stroke using AF, PTFV1, and clinical covariates. Predictions will be evaluated with log-hazard ratio from CNN, and improvement in time-dependent-AUC over baseline covariates alone, both including and not including AF and PTFV1. CNNs will be developed using raw ECG inputs, as well as inputs from a windowed-Fourier transform of ECG intensities. To leverage the serial ECGs, we will then employ a hierarchical RNN structure to serially connect outputs from CNNs associated with each patient’s individual ECGs. 
 
 In secondary analysis, we will assemble an inception cohort of stroke survivors and apply CNN and RNNs to the first ECG after incident ischemic stroke and serial ECGs after incident stroke to predict recurrent ischemic stroke.
 
-### CHS data needed: 
+#### CHS data needed: 
 ●	Serial ECGs throughout CHS study period, including raw data from 12-leads and Marquette readings
+
 ●	For each ECG: time from baseline, atrial fibrillation present, EPICARE quality score
+
 ●	All adjudicated incident ischemic stroke events and time from baseline
+
 ●	Prevalent ischemic stroke and atrial fibrillation at baseline
+
 ●	Pacemaker and time from baseline (self-report, Minnesota code 6-8, ICD-9 code V45.01 and V53.31 and procedure code 37.8*)
+
 ●	Clinical covariates at baseline (age, sex, race, hypertension, diabetes, HDL, LDL, education, BMI, triglycerides, SBP, anti-hypertensive meds, aspirin, blood thinners, and smoking)
+
 ●	Incident heart failure, atrial fibrillation, myocardial infarction, with time-to-event
  
 ### References:
