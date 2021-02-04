@@ -49,8 +49,7 @@ model_1 <- train(stk_isc ~
                  + htnmed06
                  + dm
                  + chol
-                 + smoke
-                 + clinic,
+                 + smoke,
                  data = covars_train_df,
                  method = "glm", family = binomial, trControl = ctrl_specs)
 
@@ -66,6 +65,17 @@ summary(model_1)
 # comparative variable importance (predictor variables)
 
 varImp(model_1)
+
+# apply model to covar_test_df
+# predict outcome using model from train_df applied to the test df
+# create confusion matrix (predicted vs actual values)
+
+predictions <- predict(model_1, newdata = covars_test_df)
+confusionMatrix(data = predictions, covars_test_df$stk_isc)
+## based on confusion matrix, model overfit the data
+
+
+
 
 # linear modeling attempt
 
