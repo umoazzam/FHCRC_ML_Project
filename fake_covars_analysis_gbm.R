@@ -1,3 +1,5 @@
+# GENERAL SET UP
+
 ## Set up workspace/initialize dataset
 
 rm(list = ls())
@@ -37,6 +39,8 @@ index <- createDataPartition(covars_df$stk_isc,
 train_df <- covars_df[index,]
 test_df <- covars_df[-index,]
 
+# BASIC GBM SET UP
+
 ## Run basic gbm model
 
 boost.covars <- gbm(stk_isc~.,
@@ -47,20 +51,52 @@ boost.covars <- gbm(stk_isc~.,
                     interaction.depth = 4,
                     cv.folds = 10)
 
+summary(boost.covars)
+
 ## Find index for number of trees with minimum CV error
 
 best <- which.min(boost.covars$cv.error)
 
 ## Get MSE and compute RMSE
 
-sqrt(boost.covars$cv.error[best])
+rmse <- sqrt(boost.covars$cv.error[best])
 
 ## Plot error curve
 
 best.iter <- gbm.perf(boost.covars, method = "cv")
 best.iter
 
+# TUNING PARAMETERS: LEARNING RATES
+
 ## Create Grid Search
 
-summary(boost.covars)
+hyper_grid <- expand.grid(learning_rate = c(0.3,0.1,0.05,0.01,0.005),
+                          RMSE = NA,
+                          trees = NA,
+                          time = NA)
+
+## Execute Grid Search
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
