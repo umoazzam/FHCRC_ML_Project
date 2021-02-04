@@ -59,7 +59,7 @@ best <- which.min(boost.covars$cv.error)
 
 ## Get MSE and compute RMSE
 
-rmse <- sqrt(boost.covars$cv.error[best])
+rmse_val <- sqrt(boost.covars$cv.error[best])
 
 ## Plot error curve
 
@@ -77,11 +77,80 @@ hyper_grid <- expand.grid(learning_rate = c(0.3,0.1,0.05,0.01,0.005),
 
 ## Execute Grid Search
 
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(345678) 
+  train_time <- system.time({
+    m <- gbm(stk_isc~.,
+             data = train_df,
+             distribution = "bernoulli",
+             n.trees = 18, 
+             shrinkage = hyper_grid$learning_rate[i],
+             interaction.depth = 3,
+             cv.folds = 10)
+  })
+  
+  # add SSE, trees, and training time to results
+  hyper_grid$RMSE[i]  <- sqrt(min(m$cv.error))
+  hyper_grid$trees[i] <- which.min(m$cv.error)
+  hyper_grid$Time[i]  <- train_time[["elapsed"]]
+  
+}
 
+## Grid search results
 
+arrange(hyper_grid, RMSE)
 
+# TUNING PARAMETERS: INTERACTION.DEPTH AND N.MINOBSINNODE
 
+## Search grid
 
+hyper_grid <- expand.grid(n.trees = 18,
+                          shrinkage = 0.01,
+                          interaction.depth = c(3, 5, 7),
+                          n.minobsinnode = c(5, 10, 15))
+
+## Create model fit function
+
+model_fit <- function(n.trees, shrinkage, interaction.depth, n.minobsinnode) {
+  set.seed(345678)
+  m <- gbm(stk_isc~.,
+           data = train_df,
+           distribution = "bernoulli",
+           n.trees = n.trees,
+           shrinkage = shrinkage,
+           interaction.depth = interaction.depth,
+           n.minobsinnode = n.minobsinnode,
+           cv.folds = 10)
+  sqrt(min(m$cv.error))
+}
+
+## Perform search grid with functional programming
+
+hyper_grid$rmse <- purrr::pmap_dbl(
+  hyper_grid,
+  ~ model_fit(n.trees = ..1,
+              shrinkage = ..2,
+              interaction.depth = ..3,
+              n.minobsinnode = ..4
+  )
+)
+
+arrange(hyper_grid, rmse)
+
+# FINAL 
+
+## Run basic gbm model
+
+boost.covars <- gbm(stk_isc~.,
+                    data = train_df,
+                    distribution = "bernoulli",
+                    n.trees = 18,
+                    shrinkage = 0.1,
+                    interaction.depth = 5,
+                    n.minobsinnode = 5,
+                    cv.folds = 10)
+
+summary(boost.covars)
 
 
 
