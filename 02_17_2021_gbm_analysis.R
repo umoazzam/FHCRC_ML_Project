@@ -41,6 +41,16 @@ test_df <- covars_df[-index,]
 
 # BASIC GBM SET UP
 
+## Split training data into training and validation
+
+index2 <- createDataPartition(covars_df$stk_isc, 
+                             p = 0.5, 
+                             list = FALSE, 
+                             times = 1)
+
+train_df <- covars_df[index2,]
+validation_df <- covars_df[-index2,]
+
 ## Run basic gbm model
 
 boost.covars <- gbm(stk_isc~.,
@@ -57,7 +67,7 @@ summary(boost.covars)
 
 best <- which.min(boost.covars$cv.error)
 
-## Get MSE and compute RMSE
+## Get MSE and compute RMSE (standard way to measure error in model predicting quantitative data)
 
 rmse_val <- sqrt(boost.covars$cv.error[best])
 
@@ -66,14 +76,37 @@ rmse_val <- sqrt(boost.covars$cv.error[best])
 best.iter <- gbm.perf(boost.covars, method = "cv")
 best.iter
 
-# TUNING PARAMETERS: LEARNING RATES
+# TUNING PARAMETERS: LEARNING RATES, INTERACTION>DEPTH, N.MINOBSINNODE
 
 ## Create Grid Search
 
-hyper_grid <- expand.grid(learning_rate = c(0.3,0.1,0.05,0.01,0.005),
-                          RMSE = NA,
-                          trees = NA,
-                          time = NA)
+lr_range <- c(0.3,0.1,0.05,0.01,0.005)
+id_range <- c(3, 5, 7)
+moin_range <- c(5, 10, 15)
+
+models <- data.frame(gbm_model = boost.covars, rmse_vals = rmse_val)
+
+for (i in lr_range) {
+  for (j in id_range) {
+    for (k in moin_range) {
+      m <- gbm(stk_isc~.,
+               data = train_df,
+               distribution = "bernoulli",
+               n.trees = 20, 
+               shrinkage = i,
+               interaction.depth = j,
+               n.minobsinnode = k)
+      m_rmse <- sqrt(min(m$cv.error))
+      add_row(models, gbm_model = m, rmse_vals = m_rmse)
+    }
+  }
+}
+
+model_RMSEs <- list()
+
+for (model in models) {
+  
+}
 
 ## Execute Grid Search
 
