@@ -16,7 +16,7 @@ covars_df <- covars_df %>%
   mutate(smoke1 = case_when(smoke == 1 ~ 1, smoke == 2 ~ 0, smoke == 3 ~ 0)) %>% 
   mutate(smoke2 = case_when(smoke == 2 ~ 1, smoke == 1 ~ 0, smoke == 3 ~ 0)) %>% 
   mutate(smoke3 = case_when(smoke == 3 ~ 1, smoke == 1 ~ 0, smoke == 2 ~ 0)) %>% 
-  select(-X, -clinic, -smoke)
+  select(-X, -clinic, -smoke, -idno, seqid)
 
 ## Set stroke and smoke variables as factors (DONT NEED THIS)
 
@@ -32,24 +32,24 @@ covars_df$smoke3 <- as.factor(covars_df$smoke3)
 
 set.seed(345678)
 index <- createDataPartition(covars_df$stk_isc, 
-                             p = 0.8, 
+                             p = 0.9, 
                              list = FALSE, 
                              times = 1)
 
-train_df <- covars_df[index,]
+train_val_df <- covars_df[index,]
 test_df <- covars_df[-index,]
 
 # BASIC GBM SET UP
 
 ## Split training data into training and validation
 
-index2 <- createDataPartition(covars_df$stk_isc, 
-                             p = 0.5, 
+index2 <- createDataPartition(train_val_df$stk_isc, 
+                             p = 0.8, 
                              list = FALSE, 
                              times = 1)
 
-train_df <- covars_df[index2,]
-validation_df <- covars_df[-index2,]
+train_df <- train_val_df[index2,]
+validation_df <- train_val_df[-index2,]
 
 ## Run basic gbm model
 
@@ -71,116 +71,45 @@ best <- which.min(boost.covars$cv.error)
 
 rmse_val <- sqrt(boost.covars$cv.error[best])
 
-## Plot error curve
+## Compute best number of trees and find ROC
 
 best.iter <- gbm.perf(boost.covars, method = "cv")
 best.iter
 
-# TUNING PARAMETERS: LEARNING RATES, INTERACTION>DEPTH, N.MINOBSINNODE
+pred_example <- predict.gbm(boost.covars, validation_df)
+roc_example <- gbm.roc.area(validation_df$stk_isc, pred_example)
+
+# TUNING PARAMETERS: LEARNING RATES, INTERACTION>DEPTH
 
 ## Create Grid Search
 
 lr_range <- c(0.3,0.1,0.05,0.01,0.005)
 id_range <- c(3, 5, 7)
-moin_range <- c(5, 10, 15)
 
-models <- data.frame(gbm_model = boost.covars, rmse_vals = rmse_val)
+model_ext_list <- list()
+counter <- 1
 
 for (i in lr_range) {
   for (j in id_range) {
-    for (k in moin_range) {
-      m <- gbm(stk_isc~.,
-               data = train_df,
-               distribution = "bernoulli",
-               n.trees = 20, 
-               shrinkage = i,
-               interaction.depth = j,
-               n.minobsinnode = k)
-      m_rmse <- sqrt(min(m$cv.error))
-      add_row(models, gbm_model = m, rmse_vals = m_rmse)
-    }
+    model_int <- list()
+    model_int$m <- gbm(stk_isc~.,
+                       data = train_df,
+                       distribution = "bernoulli",
+                       n.trees = 1000, 
+                       shrinkage = i,
+                       interaction.depth = j,
+                       cv.folds = 10)
+    
+    predictions <- predict.gbm(model_int$m, validation_df)
+    
+    model_int$rmse <- sqrt(min(model_int$m$cv.error))
+    model_int$learning_rate <- i
+    model_int$interaction_depth <- j
+    model_int$roc <- gbm.roc.area(validation_df$stk_isc, predictions)
+    
+    model_ext_list[[counter]] <- model_int
+    
+    counter <- counter + 1
   }
 }
 
-model_RMSEs <- list()
-
-for (model in models) {
-  
-}
-
-## Execute Grid Search
-
-for(i in seq_len(nrow(hyper_grid))) {
-  set.seed(345678) 
-  train_time <- system.time({
-    m <- gbm(stk_isc~.,
-             data = train_df,
-             distribution = "bernoulli",
-             n.trees = 18, 
-             shrinkage = hyper_grid$learning_rate[i],
-             interaction.depth = 3,
-             cv.folds = 10)
-  })
-  
-  # add SSE, trees, and training time to results
-  hyper_grid$RMSE[i]  <- sqrt(min(m$cv.error))
-  hyper_grid$trees[i] <- which.min(m$cv.error)
-  hyper_grid$Time[i]  <- train_time[["elapsed"]]
-  
-}
-
-## Grid search results
-
-arrange(hyper_grid, RMSE)
-
-# TUNING PARAMETERS: INTERACTION.DEPTH AND N.MINOBSINNODE
-
-## Search grid
-
-hyper_grid <- expand.grid(n.trees = 18,
-                          shrinkage = 0.01,
-                          interaction.depth = c(3, 5, 7),
-                          n.minobsinnode = c(5, 10, 15))
-
-## Create model fit function
-
-model_fit <- function(n.trees, shrinkage, interaction.depth, n.minobsinnode) {
-  set.seed(345678)
-  m <- gbm(stk_isc~.,
-           data = train_df,
-           distribution = "bernoulli",
-           n.trees = n.trees,
-           shrinkage = shrinkage,
-           interaction.depth = interaction.depth,
-           n.minobsinnode = n.minobsinnode,
-           cv.folds = 10)
-  sqrt(min(m$cv.error))
-}
-
-## Perform search grid with functional programming
-
-hyper_grid$rmse <- purrr::pmap_dbl(
-  hyper_grid,
-  ~ model_fit(n.trees = ..1,
-              shrinkage = ..2,
-              interaction.depth = ..3,
-              n.minobsinnode = ..4
-  )
-)
-
-arrange(hyper_grid, rmse)
-
-# FINAL 
-
-## Run basic gbm model
-
-boost.covars <- gbm(stk_isc~.,
-                    data = train_df,
-                    distribution = "bernoulli",
-                    n.trees = 18,
-                    shrinkage = 0.1,
-                    interaction.depth = 5,
-                    n.minobsinnode = 5,
-                    cv.folds = 10)
-
-summary(boost.covars)
