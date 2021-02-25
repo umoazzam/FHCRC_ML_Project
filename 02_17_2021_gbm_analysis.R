@@ -88,6 +88,7 @@ id_range <- c(3, 5, 7)
 
 model_ext_list <- list()
 counter <- 1
+roc_list <- list()
 
 for (i in lr_range) {
   for (j in id_range) {
@@ -101,11 +102,13 @@ for (i in lr_range) {
                        cv.folds = 10)
     
     predictions <- predict.gbm(model_int$m, validation_df)
+    roc <- gbm.roc.area(validation_df$stk_isc, predictions)
     
     model_int$rmse <- sqrt(min(model_int$m$cv.error))
     model_int$learning_rate <- i
     model_int$interaction_depth <- j
-    model_int$roc <- gbm.roc.area(validation_df$stk_isc, predictions)
+    model_int$roc <- roc
+    roc_list[counter] <- roc
     
     model_ext_list[[counter]] <- model_int
     
@@ -113,3 +116,14 @@ for (i in lr_range) {
   }
 }
 
+## Find best model
+
+max(unlist(roc_list))
+best_index <- which.max(unlist(roc_list))
+best_model <- model_ext_list[[best_index]]$m
+
+# TESTING BEST MODEL
+
+summary(best_model)
+predict_best <- predict.gbm(best_model, test_df)
+roc_best <- gbm.roc.area(test_df$stk_isc, predict_best)
