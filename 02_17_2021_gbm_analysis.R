@@ -7,6 +7,7 @@ setwd("~/FHCRC_ML_Project")
 library(dplyr)
 library(caret)
 library(gbm)
+library(pROC)
 covars_df <- read.csv("fake_covars.csv", 
                       stringsAsFactors = FALSE)
 
@@ -20,10 +21,6 @@ covars_df <- covars_df %>%
 
 ## Set stroke and smoke variables as factors (DONT NEED THIS)
 
-### covars_df <- as.data.frame(covars_df)
-### covars_df$stk_isc[covars_df$stk_isc==1] <- "stroke"
-### covars_df$stk_isc[covars_df$stk_isc==0] <- "no_stroke"
-### covars_df$stk_isc <- as.factor(covars_df$stk_isc)
 covars_df$smoke1 <- as.factor(covars_df$smoke1)
 covars_df$smoke2 <- as.factor(covars_df$smoke2)
 covars_df$smoke3 <- as.factor(covars_df$smoke3)
@@ -102,12 +99,14 @@ for (i in lr_range) {
                        cv.folds = 10)
     
     predictions <- predict.gbm(model_int$m, validation_df)
+    # roc <- roc(validation_df$stk_isc, predictions)
     roc <- gbm.roc.area(validation_df$stk_isc, predictions)
     
     model_int$rmse <- sqrt(min(model_int$m$cv.error))
     model_int$learning_rate <- i
     model_int$interaction_depth <- j
     model_int$roc <- roc
+    
     roc_list[counter] <- roc
     
     model_ext_list[[counter]] <- model_int
@@ -127,3 +126,4 @@ best_model <- model_ext_list[[best_index]]$m
 summary(best_model)
 predict_best <- predict.gbm(best_model, test_df)
 roc_best <- gbm.roc.area(test_df$stk_isc, predict_best)
+roc_best
