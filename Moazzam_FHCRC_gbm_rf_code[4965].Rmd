@@ -1,0 +1,114 @@
+---
+title: "Moazzam FHCRC gbm-rf Code"
+author: "Usman"
+date: "4/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+setwd("~/FHCRC_ML_Project")
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+source("04_29_21_final_methods.R")
+```
+## PROBLEM STATEMENT
+
+Strokes kill 10% of people worldwide, making them the second greatest killer after ischemic heart disease. Strokes are also a leading cause of disability. Currently, diagnosis requires clinical evaluation and brain imaging, which must occur promptly, as the specific type of stroke determines appropriate treatment. Electrocardiograms (ECGs) are easy to obtain and routinely are collected for other conditions. Identifying associations between ECG readings and risk of stroke would be valuable for both greater characterization of the etiology of stroke and its subtypes, and for improving prediction of future stroke risk. The purpose of the following code is to offer an alternate angle, using GBM and Random Forest machine learning to analyze patient biodata for associations with risk of stroke.  
+
+## DATA SET UP 
+
+### Initializing packages and creating train/validation/test dataframes
+
+**Initializing packages and dataset: **
+
+The following chunk calls the set_up() method from the included code, initializing any essential packages, calling in the desired patient dataset, and setting the workspace in the appropriate directory location. The directory location can be adjusted in the methods files, and the dataset can be changed in read.csv method call.
+```{r initialization, include=TRUE}
+set_up()
+covars_df <- data_clean(read.csv("fake_covars.csv", stringsAsFactors = FALSE))
+```
+
+**Data cleaning: **
+
+The following chunk cleans the patient dataset and creates the necessary partition to distribute data between the training, validation, and testing dataframes. The partition and proportion of data between each dataframe can be adjusted in the createDataPartition calls.
+```{r data_cleaning, include=TRUE}
+### setting index for dataset division
+set.seed(345678)
+index <- createDataPartition(covars_df$stk_isc, 
+                             p = 0.9, 
+                             list = FALSE, 
+                             times = 1)
+
+### distribution of data between train, validation, and test
+train_val_df <- covars_df[index,]
+test_df <- covars_df[-index,]
+index2 <- createDataPartition(train_val_df$stk_isc, 
+                             p = 0.8, 
+                             list = FALSE, 
+                             times = 1)
+
+train_df <- train_val_df[index2,]
+validation_df <- train_val_df[-index2,]
+``` 
+
+## TUNING PARAMETERS: LEARNING RATES, INTERACTION-DEPTH 
+
+### Finding/analyzing best model from tuning parameter grid search
+
+**GBM Hypergrid: Learning Rate and Interaction Depth**
+
+The following chunk runs gradient-boosted machine modeling using the default settings of the gbm() method call for general reference (gbm package). Then, a hypergrid of GBM models is constructed using tuning paramaters learning rate and interaction depth, from which the best model is isolated using the find_best_model() method (based on highest AUC value). The range of values for learning rate and interaction depth used are the default for the gbm_grid_search() method, and can be changed by inputting new ranges under the lr_range and id_range arguments of the method call.
+
+```{r gbm_tuning, include=TRUE}
+### create default model, summary, and AUC
+default_gbm <- gbm(stk_isc~.,
+                   data = train_df,
+                   distribution = "bernoulli")
+default_gbm
+d_gbm_pred <- predict.gbm(default_gbm, validation_df)
+d_gbm_auc <- gbm.roc.area(validation_df$stk_isc, d_gbm_pred)
+
+### create hypergrid of tuning models and find best model based on ROC
+### lr_range = c(0.3,0.1,0.05,0.01,0.005), id_range = c(3, 5, 7)
+gbm_models <- gbm_grid_search(train_df, validation_df)
+best_gbm_model <- find_best_model(gbm_models$model_ext_list)
+```
+
+**Random Forest Hypergrid: Max Tree Depth and Numeber of Variables/Features**
+
+The following chunk runs Random Forest machine modeling using the default settings of the ranger() method call for general reference (ranger package). Then, a hypergrid of RF models is constructed using tuning paramaters max tree depth and number of features, from which the best model is isolated using the find_best_model() method (based on highest AUC value). The range of values for max tree depth and number of features used are the default for the rf_grid_search() method, and can be changed by inputting new ranges under the depth_range and mtry_range arguments of the method call.
+
+```{r rf_tuning, include=TRUE}
+### create default model, summary, and AUC
+default_rf <- ranger(stk_isc~.,
+                   data = train_df)
+default_rf
+d_rf_pred <- predict(default_rf, validation_df)
+require(pROC)
+d_rf_auc <- auc(roc(validation_df$stk_isc, d_rf_pred$predictions))
+
+
+### create hypergrid of tuning models and find best model based on ROC
+### depth_range = c(5, 10, 15, 20, 25, 30), mtry_range = c(3, 4, 5, 6, 7, 8)
+rf_models <- rf_grid_search(train_df, validation_df)
+best_rf_model <- find_best_model(rf_models$model_ext_list)
+```
+
+**Final Models Analysis:**
+
+The final chunk generates a summary of the best gbm and RF models. Then, the chunk creates a set of final predictions from both models using the test dataframe, and finds the AUC for both of the final prediction sets.
+
+```{r best_models, include=TRUE}
+# Best GBM Model Analysis
+summary(best_gbm_model)
+final_gbm_predictions <- predict.gbm(best_gbm_model, test_df)
+final_gbm_auc <- gbm.roc.area(test_df$stk_isc, final_gbm_predictions)
+final_gbm_auc
+
+# Best Random Forest Model Analysis
+summary(best_rf_model)
+final_rf_predictions <- predict(best_rf_model, test_df)
+final_rf_auc <- auc(roc(test_df$stk_isc, final_rf_predictions$predictions))
+final_rf_auc
+
+
+```
+
